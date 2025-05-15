@@ -1,0 +1,51 @@
+.logo {
+  height: 32px;
+  margin: 16px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.site-layout .site-layout-background {
+  background: #fff;
+}
+
+.ant-layout-sider-trigger {
+  background: #001529;
+}
+
+.site-layout-background {
+  margin-top: 16px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+/* เพิ่มใน src/App.css */
+
+/* ปรับแต่ง layout สำหรับมือถือ */
+@media (max-width: 768px) {
+  .calendar-container .ant-picker-calendar-date-content {
+    height: auto !important;
+    min-height: 1.5em;
+  }
+  
+  /* ปรับขนาดตารางใน TeamMembers */
+  .team-members-page .ant-table {
+    font-size: 12px;
+  }
+  
+  /* ซ่อนบางคอลัมน์บนมือถือ */
+  .team-members-page .ant-table-cell:nth-child(3),
+  .team-members-page .ant-table-cell:nth-child(4) {
+    display: none;
+  }
+}
+
+/* เป็นมิตรกับการแสดงผลบนมือถือ */
+@media (max-width: 576px) {
+  .site-layout-background {
+    padding: 12px !important;
+  }
+  
+  .ant-card {
+    margin-bottom: 12px;
+  }
+}
