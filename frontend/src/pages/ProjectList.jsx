@@ -18,6 +18,7 @@ import {
   List,
   Checkbox,
   Divider,
+  Alert,
 } from "antd";
 import {
   PlusOutlined,
@@ -33,11 +34,15 @@ import {
   InboxOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  EyeOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
 import "moment/locale/th";
 
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";
+import { AdminOnly, PermissionGuard } from "../components/RoleGuard";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -55,6 +60,14 @@ const ProjectList = () => {
   const [fileListVisible, setFileListVisible] = useState(false);
   const [selectedProjectForFiles, setSelectedProjectForFiles] = useState(null);
 
+  const {
+    userRole,
+    userPermissions,
+    getAssignedProjects,
+    canAccessProject,
+    isAdmin,
+  } = useAuth();
+
   // สถานะโปรเจค
   const projectStatuses = [
     { value: "todo", label: "Todo", color: "default" },
@@ -66,28 +79,16 @@ const ProjectList = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [userRole]);
 
-  // ฟังก์ชันดึงข้อมูลโปรเจคจาก Supabase
+  // ฟังก์ชันดึงข้อมูลโปรเจคตามสิทธิ์ของผู้ใช้
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("projects")
-        .select(
-          `
-          *,
-          tasks:tasks(*)
-        `
-        )
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        throw error;
-      }
+      const assignedProjects = await getAssignedProjects();
 
       // คำนวณวันที่เหลือและความคืบหน้า
-      const projectsWithCalculations = data.map((project) => {
+      const projectsWithCalculations = assignedProjects.map((project) => {
         const totalDays = moment(project.end_date).diff(
           moment(project.start_date),
           "days"
@@ -125,15 +126,28 @@ const ProjectList = () => {
     return Math.round((completedTasks / tasks.length) * 100);
   };
 
-  // แสดงฟอร์มเพิ่ม/แก้ไขโปรเจค
+  // แสดงฟอร์มเพิ่ม/แก้ไขโปรเจค (เฉพาะ Admin)
   const showProjectForm = (project = null) => {
+    if (!userPermissions.canCreateProjects && !project) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการสร้างโปรเจคใหม่",
+      });
+      return;
+    }
+
+    if (project && !userPermissions.canEditAllProjects) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการแก้ไขโปรเจค",
+      });
+      return;
+    }
+
     setEditingProject(project);
     setUploadedFiles([]);
 
     if (project) {
-      console.log("Editing project:", project);
-
-      // แปลง payment_installments เป็น array ถ้าเป็น string
       let installments = project.payment_installments || [];
       if (typeof installments === "string") {
         try {
@@ -144,7 +158,6 @@ const ProjectList = () => {
         }
       }
 
-      // ตรวจสอบว่ามีฟิลด์ paid หรือไม่
       installments = installments.map((item) => ({
         ...item,
         paid: item.paid || false,
@@ -170,7 +183,6 @@ const ProjectList = () => {
             ],
       });
 
-      // ดึงไฟล์ที่เกี่ยวข้องกับโปรเจคนี้
       fetchProjectFiles(project.id);
     } else {
       form.resetFields();
@@ -210,31 +222,49 @@ const ProjectList = () => {
 
   // แสดงรายการไฟล์ของโปรเจค
   const showProjectFiles = async (project) => {
+    if (!canAccessProject(project)) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการดูไฟล์ของโปรเจคนี้",
+      });
+      return;
+    }
+
     setSelectedProjectForFiles(project);
     await fetchProjectFiles(project.id);
     setFileListVisible(true);
   };
 
-  // บันทึกข้อมูลโปรเจค
+  // บันทึกข้อมูลโปรเจค (เฉพาะ Admin)
   const handleSubmit = async (values) => {
+    if (!userPermissions.canCreateProjects && !editingProject) {
+      notification.error({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการสร้างโปรเจค",
+      });
+      return;
+    }
+
+    if (editingProject && !userPermissions.canEditAllProjects) {
+      notification.error({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการแก้ไขโปรเจค",
+      });
+      return;
+    }
+
     try {
-      // แปลงข้อมูลวันที่
       const [start_date, end_date] = values.date_range;
 
-      // จัดการกับ payment_installments
       let payment_installments = values.payment_installments;
-
-      // ตรวจสอบว่า payment_installments มีค่าและเป็น array หรือไม่
       if (!payment_installments || !Array.isArray(payment_installments)) {
         payment_installments = [];
       }
 
-      // กรองออกรายการที่ไม่มีข้อมูล
       payment_installments = payment_installments.filter(
         (item) => item && (item.installment || item.amount || item.description)
       );
 
-      // ตรวจสอบว่าแต่ละรายการมีฟิลด์ paid หรือไม่
       payment_installments = payment_installments.map((item) => ({
         ...item,
         paid: item.paid || false,
@@ -254,9 +284,7 @@ const ProjectList = () => {
 
       let projectId;
 
-      // ไม่ต้องส่ง user_id เมื่อทำการอัปเดต
       if (editingProject) {
-        // อัปเดตโปรเจค
         const { error } = await supabase
           .from("projects")
           .update(projectData)
@@ -271,14 +299,12 @@ const ProjectList = () => {
 
         projectId = editingProject.id;
       } else {
-        // ดึง user_id ปัจจุบัน
         const {
           data: { user },
         } = await supabase.auth.getUser();
 
         if (!user) throw new Error("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
 
-        // สร้างโปรเจคใหม่ พร้อมระบุ user_id
         const { data, error } = await supabase
           .from("projects")
           .insert([
@@ -299,12 +325,10 @@ const ProjectList = () => {
         projectId = data[0].id;
       }
 
-      // อัปโหลดไฟล์ที่เกี่ยวข้อง (ถ้ามี)
       if (uploadedFiles.length > 0 && projectId) {
         await uploadProjectFiles(projectId, uploadedFiles);
       }
 
-      // รีเฟรชข้อมูล
       fetchProjects();
       setVisible(false);
     } catch (error) {
@@ -318,13 +342,20 @@ const ProjectList = () => {
 
   // อัปโหลดไฟล์ไปยัง Supabase Storage
   const uploadProjectFiles = async (projectId, files) => {
+    if (!userPermissions.canUploadFiles) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการอัปโหลดไฟล์",
+      });
+      return;
+    }
+
     try {
       for (const file of files) {
         const fileExt = file.name.split(".").pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `${projectId}/${fileName}`;
 
-        // 1. อัปโหลดไฟล์ไปยัง Supabase Storage
         const { data, error } = await supabase.storage
           .from("project-files")
           .upload(filePath, file, {
@@ -334,7 +365,6 @@ const ProjectList = () => {
 
         if (error) throw error;
 
-        // 2. สร้างข้อมูลไฟล์ในตาราง project_files
         const { data: userData } = await supabase.auth.getUser();
 
         const { error: dbError } = await supabase.from("project_files").insert({
@@ -362,17 +392,23 @@ const ProjectList = () => {
     }
   };
 
-  // ลบไฟล์
+  // ลบไฟล์ (เฉพาะ Admin)
   const deleteFile = async (fileId, filePath) => {
+    if (!userPermissions.canUploadFiles) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการลบไฟล์",
+      });
+      return;
+    }
+
     try {
-      // 1. ลบไฟล์จาก Storage
       const { error: storageError } = await supabase.storage
         .from("project-files")
         .remove([filePath]);
 
       if (storageError) throw storageError;
 
-      // 2. ลบข้อมูลไฟล์จากตาราง
       const { error: dbError } = await supabase
         .from("project_files")
         .delete()
@@ -380,7 +416,6 @@ const ProjectList = () => {
 
       if (dbError) throw dbError;
 
-      // 3. รีเฟรชข้อมูลไฟล์
       if (editingProject) {
         fetchProjectFiles(editingProject.id);
       } else if (selectedProjectForFiles) {
@@ -409,7 +444,6 @@ const ProjectList = () => {
 
       if (error) throw error;
 
-      // สร้าง URL สำหรับดาวน์โหลด
       const url = URL.createObjectURL(data);
       const link = document.createElement("a");
       link.href = url;
@@ -426,8 +460,16 @@ const ProjectList = () => {
     }
   };
 
-  // ลบโปรเจค
+  // ลบโปรเจค (เฉพาะ Admin)
   const deleteProject = async (id) => {
+    if (!userPermissions.canDeleteProjects) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการลบโปรเจค",
+      });
+      return;
+    }
+
     try {
       console.log("Attempting to delete project with ID:", id);
 
@@ -440,7 +482,6 @@ const ProjectList = () => {
         return;
       }
 
-      // ตรวจสอบว่าโปรเจคมีอยู่จริงหรือไม่
       const { data: checkProject, error: checkError } = await supabase
         .from("projects")
         .select("id")
@@ -458,7 +499,6 @@ const ProjectList = () => {
 
       console.log("Project found, proceeding with deletion");
 
-      // ดึงไฟล์ทั้งหมดของโปรเจคนี้เพื่อลบจาก Storage
       const { data: files } = await supabase
         .from("project_files")
         .select("file_path")
@@ -469,7 +509,6 @@ const ProjectList = () => {
         await supabase.storage.from("project-files").remove(filePaths);
       }
 
-      // ดำเนินการลบโปรเจค (Cascade จะลบข้อมูลในตารางที่เกี่ยวข้องด้วย)
       const { data, error } = await supabase
         .from("projects")
         .delete()
@@ -501,7 +540,15 @@ const ProjectList = () => {
       dataIndex: "name",
       key: "name",
       render: (text, record) => (
-        <a onClick={() => goToProjectDetail(record.id)}>{text}</a>
+        <div>
+          <a onClick={() => goToProjectDetail(record.id)}>{text}</a>
+          {!isAdmin && (
+            <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+              <UserOutlined style={{ marginRight: "4px" }} />
+              บทบาท: {record.user_assignment_role || "ไม่ระบุ"}
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -585,28 +632,55 @@ const ProjectList = () => {
       key: "action",
       render: (_, record) => (
         <Space size="middle">
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            size="small"
-            onClick={() => showProjectForm(record)}
-          />
+          {!canAccessProject(record) ? (
+            <Tooltip title="คุณไม่มีสิทธิ์เข้าถึงโปรเจคนี้">
+              <Button icon={<LockOutlined />} size="small" disabled />
+            </Tooltip>
+          ) : (
+            <>
+              <PermissionGuard
+                requiredPermission="canViewAllProjects"
+                showFallback={false}
+              >
+                <Button
+                  type="default"
+                  icon={<EyeOutlined />}
+                  size="small"
+                  onClick={() => goToProjectDetail(record.id)}
+                  title="ดูรายละเอียด"
+                />
+              </PermissionGuard>
 
-          <Button
-            type="primary"
-            danger
-            icon={<DeleteOutlined />}
-            size="small"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `คุณต้องการลบโปรเจค "${record.name}" ใช่หรือไม่?`
-                )
-              ) {
-                deleteProject(record.id);
-              }
-            }}
-          />
+              <AdminOnly showFallback={false}>
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  size="small"
+                  onClick={() => showProjectForm(record)}
+                  title="แก้ไข"
+                />
+              </AdminOnly>
+
+              <AdminOnly showFallback={false}>
+                <Button
+                  type="primary"
+                  danger
+                  icon={<DeleteOutlined />}
+                  size="small"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `คุณต้องการลบโปรเจค "${record.name}" ใช่หรือไม่?`
+                      )
+                    ) {
+                      deleteProject(record.id);
+                    }
+                  }}
+                  title="ลบ"
+                />
+              </AdminOnly>
+            </>
+          )}
         </Space>
       ),
     },
@@ -614,7 +688,15 @@ const ProjectList = () => {
 
   // ฟังก์ชันเปลี่ยนหน้าไปที่รายละเอียดโปรเจค
   const goToProjectDetail = (projectId) => {
-    // สำหรับตัวอย่างนี้ ให้แสดงการแจ้งเตือนก่อน
+    const project = projects.find((p) => p.id === projectId);
+    if (project && !canAccessProject(project)) {
+      notification.warning({
+        message: "ไม่มีสิทธิ์",
+        description: "คุณไม่มีสิทธิ์ในการดูรายละเอียดโปรเจคนี้",
+      });
+      return;
+    }
+
     notification.info({
       message: "รายละเอียดโปรเจค",
       description: `ดูรายละเอียดโปรเจค ID: ${projectId}`,
@@ -629,16 +711,30 @@ const ProjectList = () => {
           marginBottom: 16,
           display: "flex",
           justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        <h2>รายการโปรเจคทั้งหมด</h2>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => showProjectForm()}
-        >
-          สร้างโปรเจคใหม่
-        </Button>
+        <div>
+          <h2>{isAdmin ? "รายการโปรเจคทั้งหมด" : "โปรเจคที่ได้รับมอบหมาย"}</h2>
+          {!isAdmin && (
+            <Alert
+              message="คุณจะเห็นเฉพาะโปรเจคที่ได้รับมอบหมายเท่านั้น"
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
+        </div>
+
+        <AdminOnly showFallback={false}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => showProjectForm()}
+          >
+            สร้างโปรเจคใหม่
+          </Button>
+        </AdminOnly>
       </div>
 
       <Table
@@ -651,92 +747,105 @@ const ProjectList = () => {
           expandedRowRender: (record) => (
             <div>
               <p>{record.description || "ไม่มีคำอธิบาย"}</p>
-              {/* แสดงข้อมูลการชำระเงิน */}
               {record.payment_installments &&
                 record.payment_installments.length > 0 && (
-                  <div style={{ marginTop: 16 }}>
-                    <h4>การชำระเงิน</h4>
-                    <table
-                      style={{ width: "100%", borderCollapse: "collapse" }}
-                    >
-                      <thead>
-                        <tr>
-                          <th
-                            style={{ border: "1px solid #f0f0f0", padding: 8 }}
-                          >
-                            งวดที่
-                          </th>
-                          <th
-                            style={{ border: "1px solid #f0f0f0", padding: 8 }}
-                          >
-                            จำนวนเงิน
-                          </th>
-                          <th
-                            style={{ border: "1px solid #f0f0f0", padding: 8 }}
-                          >
-                            รายละเอียด
-                          </th>
-                          <th
-                            style={{ border: "1px solid #f0f0f0", padding: 8 }}
-                          >
-                            สถานะ
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {record.payment_installments.map((item, index) => (
-                          <tr key={index}>
-                            <td
+                  <PermissionGuard requiredPermission="canViewAllProjects">
+                    <div style={{ marginTop: 16 }}>
+                      <h4>การชำระเงิน</h4>
+                      <table
+                        style={{ width: "100%", borderCollapse: "collapse" }}
+                      >
+                        <thead>
+                          <tr>
+                            <th
                               style={{
                                 border: "1px solid #f0f0f0",
                                 padding: 8,
                               }}
                             >
-                              {item.installment}
-                            </td>
-                            <td
+                              งวดที่
+                            </th>
+                            <th
                               style={{
                                 border: "1px solid #f0f0f0",
                                 padding: 8,
                               }}
                             >
-                              {item.amount?.toLocaleString("th-TH")} บาท
-                            </td>
-                            <td
+                              จำนวนเงิน
+                            </th>
+                            <th
                               style={{
                                 border: "1px solid #f0f0f0",
                                 padding: 8,
                               }}
                             >
-                              {item.description}
-                            </td>
-                            <td
+                              รายละเอียด
+                            </th>
+                            <th
                               style={{
                                 border: "1px solid #f0f0f0",
                                 padding: 8,
                               }}
                             >
-                              {item.paid ? (
-                                <Tag
-                                  color="success"
-                                  icon={<CheckCircleOutlined />}
-                                >
-                                  จ่ายแล้ว
-                                </Tag>
-                              ) : (
-                                <Tag
-                                  color="error"
-                                  icon={<CloseCircleOutlined />}
-                                >
-                                  ยังไม่จ่าย
-                                </Tag>
-                              )}
-                            </td>
+                              สถานะ
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {record.payment_installments.map((item, index) => (
+                            <tr key={index}>
+                              <td
+                                style={{
+                                  border: "1px solid #f0f0f0",
+                                  padding: 8,
+                                }}
+                              >
+                                {item.installment}
+                              </td>
+                              <td
+                                style={{
+                                  border: "1px solid #f0f0f0",
+                                  padding: 8,
+                                }}
+                              >
+                                {item.amount?.toLocaleString("th-TH")} บาท
+                              </td>
+                              <td
+                                style={{
+                                  border: "1px solid #f0f0f0",
+                                  padding: 8,
+                                }}
+                              >
+                                {item.description}
+                              </td>
+                              <td
+                                style={{
+                                  border: "1px solid #f0f0f0",
+                                  padding: 8,
+                                }}
+                              >
+                                {item.paid ? (
+                                  <Tag
+                                    color="success"
+                                    icon={<CheckCircleOutlined />}
+                                  >
+                                    จ่ายแล้ว
+                                  </Tag>
+                                ) : (
+                                  <Tag
+                                    color="error"
+                                    icon={<CloseCircleOutlined />}
+                                  >
+                                    ยังไม่จ่าย
+                                  </Tag>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </PermissionGuard>
                 )}
             </div>
           ),
@@ -766,14 +875,16 @@ const ProjectList = () => {
                   >
                     ดาวน์โหลด
                   </Button>,
-                  <Button
-                    type="link"
-                    danger
-                    onClick={() => deleteFile(item.id, item.file_path)}
-                  >
-                    ลบ
-                  </Button>,
-                ]}
+                  <AdminOnly showFallback={false}>
+                    <Button
+                      type="link"
+                      danger
+                      onClick={() => deleteFile(item.id, item.file_path)}
+                    >
+                      ลบ
+                    </Button>
+                  </AdminOnly>,
+                ].filter(Boolean)}
               >
                 <List.Item.Meta
                   avatar={<FileOutlined style={{ fontSize: 24 }} />}
@@ -799,244 +910,248 @@ const ProjectList = () => {
         )}
       </Modal>
 
-      {/* Modal สำหรับการจัดการโปรเจค */}
-      <Modal
-        title={editingProject ? "แก้ไขโปรเจค" : "สร้างโปรเจคใหม่"}
-        open={visible}
-        onCancel={() => setVisible(false)}
-        footer={null}
-        width={800}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
-            name="name"
-            label="ชื่อโปรเจค"
-            rules={[{ required: true, message: "กรุณาระบุชื่อโปรเจค" }]}
-          >
-            <Input placeholder="ระบุชื่อโปรเจค" />
-          </Form.Item>
+      {/* Modal สำหรับการจัดการโปรเจค (เฉพาะ Admin) */}
+      <AdminOnly showFallback={false}>
+        <Modal
+          title={editingProject ? "แก้ไขโปรเจค" : "สร้างโปรเจคใหม่"}
+          open={visible}
+          onCancel={() => setVisible(false)}
+          footer={null}
+          width={800}
+        >
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <Form.Item
+              name="name"
+              label="ชื่อโปรเจค"
+              rules={[{ required: true, message: "กรุณาระบุชื่อโปรเจค" }]}
+            >
+              <Input placeholder="ระบุชื่อโปรเจค" />
+            </Form.Item>
 
-          <Form.Item name="description" label="รายละเอียด">
-            <TextArea rows={4} placeholder="รายละเอียดโปรเจค" />
-          </Form.Item>
+            <Form.Item name="description" label="รายละเอียด">
+              <TextArea rows={4} placeholder="รายละเอียดโปรเจค" />
+            </Form.Item>
 
-          <Form.Item name="status" label="สถานะ" rules={[{ required: true }]}>
-            <Select>
-              {projectStatuses.map((status) => (
-                <Option key={status.value} value={status.value}>
-                  {status.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+            <Form.Item name="status" label="สถานะ" rules={[{ required: true }]}>
+              <Select>
+                {projectStatuses.map((status) => (
+                  <Option key={status.value} value={status.value}>
+                    {status.label}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item
-            name="date_range"
-            label="ระยะเวลาโปรเจค"
-            rules={[{ required: true, message: "กรุณาเลือกระยะเวลา" }]}
-          >
-            <RangePicker format="DD/MM/YYYY" style={{ width: "100%" }} />
-          </Form.Item>
+            <Form.Item
+              name="date_range"
+              label="ระยะเวลาโปรเจค"
+              rules={[{ required: true, message: "กรุณาเลือกระยะเวลา" }]}
+            >
+              <RangePicker format="DD/MM/YYYY" style={{ width: "100%" }} />
+            </Form.Item>
 
-          <Form.Item
-            name="budget"
-            label="งบประมาณ (บาท)"
-            rules={[{ required: true, message: "กรุณาระบุงบประมาณ" }]}
-          >
-            <InputNumber
-              style={{ width: "100%" }}
-              formatter={(value) =>
-                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-              }
-              parser={(value) => value.replace(/\$\s?|(,*)/g, "")}
-              placeholder="ระบุงบประมาณ"
-            />
-          </Form.Item>
+            <Form.Item
+              name="budget"
+              label="งบประมาณ (บาท)"
+              rules={[{ required: true, message: "กรุณาระบุงบประมาณ" }]}
+            >
+              <InputNumber
+                style={{ width: "100%" }}
+                formatter={(value) =>
+                  `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                }
+                parser={(value) => value.replace(/\$\s?|(,*)/g, "")}
+                placeholder="ระบุงบประมาณ"
+              />
+            </Form.Item>
 
-          <Form.List name="payment_installments">
-            {(fields, { add, remove }) => (
-              <>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <h4>การแบ่งชำระเงิน</h4>
-                  <Button
-                    type="dashed"
-                    onClick={() =>
-                      add({
-                        installment: fields.length + 1,
-                        amount: 0,
-                        description: `งวดที่ ${fields.length + 1}`,
-                        paid: false,
-                      })
-                    }
-                    icon={<PlusOutlined />}
-                  >
-                    เพิ่มงวด
-                  </Button>
-                </div>
-
-                {fields.map((field) => (
+            <Form.List name="payment_installments">
+              {(fields, { add, remove }) => (
+                <>
                   <div
-                    key={field.key}
                     style={{
                       display: "flex",
-                      marginBottom: 8,
-                      gap: 8,
+                      justifyContent: "space-between",
                       alignItems: "center",
                     }}
                   >
-                    <Form.Item
-                      {...field}
-                      name={[field.name, "installment"]}
-                      style={{ width: "12%", marginBottom: 0 }}
-                    >
-                      <InputNumber
-                        min={1}
-                        placeholder="งวดที่"
-                        style={{ width: "100%" }}
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      {...field}
-                      name={[field.name, "amount"]}
-                      style={{ width: "25%", marginBottom: 0 }}
-                    >
-                      <InputNumber
-                        placeholder="จำนวนเงิน"
-                        style={{ width: "100%" }}
-                        formatter={(value) =>
-                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                        }
-                        parser={(value) => value.replace(/\$\s?|(,*)/g, "")}
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      {...field}
-                      name={[field.name, "description"]}
-                      style={{ width: "40%", marginBottom: 0 }}
-                    >
-                      <Input placeholder="รายละเอียด" />
-                    </Form.Item>
-
-                    {/* เพิ่มช่องติ๊กถูกสำหรับงวดที่จ่ายแล้ว */}
-                    <Form.Item
-                      {...field}
-                      name={[field.name, "paid"]}
-                      valuePropName="checked"
-                      style={{ width: "10%", marginBottom: 0 }}
-                    >
-                      <Checkbox>จ่ายแล้ว</Checkbox>
-                    </Form.Item>
-
+                    <h4>การแบ่งชำระเงิน</h4>
                     <Button
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => remove(field.name)}
-                    />
+                      type="dashed"
+                      onClick={() =>
+                        add({
+                          installment: fields.length + 1,
+                          amount: 0,
+                          description: `งวดที่ ${fields.length + 1}`,
+                          paid: false,
+                        })
+                      }
+                      icon={<PlusOutlined />}
+                    >
+                      เพิ่มงวด
+                    </Button>
                   </div>
-                ))}
+
+                  {fields.map((field) => (
+                    <div
+                      key={field.key}
+                      style={{
+                        display: "flex",
+                        marginBottom: 8,
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <Form.Item
+                        {...field}
+                        name={[field.name, "installment"]}
+                        style={{ width: "12%", marginBottom: 0 }}
+                      >
+                        <InputNumber
+                          min={1}
+                          placeholder="งวดที่"
+                          style={{ width: "100%" }}
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...field}
+                        name={[field.name, "amount"]}
+                        style={{ width: "25%", marginBottom: 0 }}
+                      >
+                        <InputNumber
+                          placeholder="จำนวนเงิน"
+                          style={{ width: "100%" }}
+                          formatter={(value) =>
+                            `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                          }
+                          parser={(value) => value.replace(/\$\s?|(,*)/g, "")}
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...field}
+                        name={[field.name, "description"]}
+                        style={{ width: "40%", marginBottom: 0 }}
+                      >
+                        <Input placeholder="รายละเอียด" />
+                      </Form.Item>
+
+                      <Form.Item
+                        {...field}
+                        name={[field.name, "paid"]}
+                        valuePropName="checked"
+                        style={{ width: "10%", marginBottom: 0 }}
+                      >
+                        <Checkbox>จ่ายแล้ว</Checkbox>
+                      </Form.Item>
+
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => remove(field.name)}
+                      />
+                    </div>
+                  ))}
+                </>
+              )}
+            </Form.List>
+
+            <Form.Item
+              name="owner_name"
+              label="ชื่อเจ้าของโครงการ"
+              rules={[
+                { required: true, message: "กรุณาระบุชื่อเจ้าของโครงการ" },
+              ]}
+            >
+              <Input placeholder="ระบุชื่อเจ้าของโครงการ" />
+            </Form.Item>
+
+            <Form.Item
+              name="owner_contact"
+              label="ช่องทางการติดต่อ"
+              rules={[{ required: true, message: "กรุณาระบุช่องทางการติดต่อ" }]}
+            >
+              <Input placeholder="อีเมล หรือ เบอร์โทรศัพท์" />
+            </Form.Item>
+
+            <Divider orientation="left">ไฟล์แนบ</Divider>
+
+            {editingProject && projectFiles.length > 0 && (
+              <>
+                <h4>ไฟล์ที่มีอยู่แล้ว</h4>
+                <List
+                  size="small"
+                  bordered
+                  dataSource={projectFiles}
+                  renderItem={(item) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          type="link"
+                          onClick={() =>
+                            downloadFile(item.file_path, item.file_name)
+                          }
+                        >
+                          ดาวน์โหลด
+                        </Button>,
+                        <Button
+                          type="link"
+                          danger
+                          onClick={() => deleteFile(item.id, item.file_path)}
+                        >
+                          ลบ
+                        </Button>,
+                      ]}
+                    >
+                      <List.Item.Meta
+                        avatar={<FileOutlined />}
+                        title={item.file_name}
+                        description={`${(item.file_size / 1024).toFixed(2)} KB`}
+                      />
+                    </List.Item>
+                  )}
+                  style={{ marginBottom: 16 }}
+                />
               </>
             )}
-          </Form.List>
 
-          <Form.Item
-            name="owner_name"
-            label="ชื่อเจ้าของโครงการ"
-            rules={[{ required: true, message: "กรุณาระบุชื่อเจ้าของโครงการ" }]}
-          >
-            <Input placeholder="ระบุชื่อเจ้าของโครงการ" />
-          </Form.Item>
+            <Dragger
+              multiple
+              beforeUpload={(file) => {
+                setUploadedFiles((prev) => [...prev, file]);
+                return false;
+              }}
+              onRemove={(file) => {
+                setUploadedFiles((prev) =>
+                  prev.filter((item) => item.uid !== file.uid)
+                );
+              }}
+              fileList={uploadedFiles}
+            >
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">
+                คลิกหรือลากไฟล์มาที่นี่เพื่ออัปโหลด
+              </p>
+              <p className="ant-upload-hint">
+                รองรับการอัปโหลดไฟล์หลายไฟล์พร้อมกัน
+              </p>
+            </Dragger>
 
-          <Form.Item
-            name="owner_contact"
-            label="ช่องทางการติดต่อ"
-            rules={[{ required: true, message: "กรุณาระบุช่องทางการติดต่อ" }]}
-          >
-            <Input placeholder="อีเมล หรือ เบอร์โทรศัพท์" />
-          </Form.Item>
-
-          {/* เพิ่มส่วนอัปโหลดไฟล์ */}
-          <Divider orientation="left">ไฟล์แนบ</Divider>
-
-          {/* แสดงไฟล์ที่มีอยู่แล้ว (กรณีแก้ไข) */}
-          {editingProject && projectFiles.length > 0 && (
-            <>
-              <h4>ไฟล์ที่มีอยู่แล้ว</h4>
-              <List
-                size="small"
-                bordered
-                dataSource={projectFiles}
-                renderItem={(item) => (
-                  <List.Item
-                    actions={[
-                      <Button
-                        type="link"
-                        onClick={() =>
-                          downloadFile(item.file_path, item.file_name)
-                        }
-                      >
-                        ดาวน์โหลด
-                      </Button>,
-                      <Button
-                        type="link"
-                        danger
-                        onClick={() => deleteFile(item.id, item.file_path)}
-                      >
-                        ลบ
-                      </Button>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      avatar={<FileOutlined />}
-                      title={item.file_name}
-                      description={`${(item.file_size / 1024).toFixed(2)} KB`}
-                    />
-                  </List.Item>
-                )}
-                style={{ marginBottom: 16 }}
-              />
-            </>
-          )}
-
-          {/* อัปโหลดไฟล์ใหม่ */}
-          <Dragger
-            multiple
-            beforeUpload={(file) => {
-              setUploadedFiles((prev) => [...prev, file]);
-              return false; // ป้องกันการอัปโหลดอัตโนมัติ
-            }}
-            onRemove={(file) => {
-              setUploadedFiles((prev) =>
-                prev.filter((item) => item.uid !== file.uid)
-              );
-            }}
-            fileList={uploadedFiles}
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text">
-              คลิกหรือลากไฟล์มาที่นี่เพื่ออัปโหลด
-            </p>
-            <p className="ant-upload-hint">
-              รองรับการอัปโหลดไฟล์หลายไฟล์พร้อมกัน
-            </p>
-          </Dragger>
-
-          <Form.Item style={{ marginTop: 16 }}>
-            <Button type="primary" htmlType="submit" style={{ width: "100%" }}>
-              {editingProject ? "อัปเดตโปรเจค" : "สร้างโปรเจค"}
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
+            <Form.Item style={{ marginTop: 16 }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                style={{ width: "100%" }}
+              >
+                {editingProject ? "อัปเดตโปรเจค" : "สร้างโปรเจค"}
+              </Button>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </AdminOnly>
     </div>
   );
 };

@@ -1,0 +1,748 @@
+/* Dashboard Specific Enhancements */
+
+/* Stats Cards with Gradient Backgrounds */
+.dashboard .ant-col:nth-child(1) .ant-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard .ant-col:nth-child(1) .ant-card::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  transform: scale(0);
+  transition: transform 0.6s ease;
+}
+
+.dashboard .ant-col:nth-child(1) .ant-card:hover::before {
+  transform: scale(1);
+}
+
+.dashboard .ant-col:nth-child(1) .ant-statistic-title,
+.dashboard .ant-col:nth-child(1) .ant-statistic-content-value {
+  color: black !important;
+}
+
+/* Success Card - Green Gradient */
+.dashboard .ant-col:nth-child(2) .ant-card {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: black;
+  border: none;
+}
+
+.dashboard .ant-col:nth-child(2) .ant-statistic-title,
+.dashboard .ant-col:nth-child(2) .ant-statistic-content-value {
+  color: black !important;
+}
+
+/* In Progress Card - Blue Gradient */
+.dashboard .ant-col:nth-child(3) .ant-card {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: black;
+  border: none;
+}
+
+.dashboard .ant-col:nth-child(3) .ant-statistic-title,
+.dashboard .ant-col:nth-child(3) .ant-statistic-content-value {
+  color: black !important;
+}
+
+/* Delayed Card - Red Gradient */
+.dashboard .ant-col:nth-child(4) .ant-card {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: black;
+  border: none;
+}
+
+.dashboard .ant-col:nth-child(4) .ant-statistic-title,
+.dashboard .ant-col:nth-child(4) .ant-statistic-content-value {
+  color: black !important;
+}
+
+/* Budget Cards */
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(1) .ant-card {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: black;
+  border: none;
+}
+
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(1) .ant-statistic-title,
+.dashboard
+  .ant-row:nth-child(2)
+  .ant-col:nth-child(1)
+  .ant-statistic-content-value {
+  color: black !important;
+}
+
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(2) .ant-card {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: black;
+  border: none;
+}
+
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(2) .ant-statistic-title,
+.dashboard
+  .ant-row:nth-child(2)
+  .ant-col:nth-child(2)
+  .ant-statistic-content-value {
+  color: black !important;
+}
+
+/* Card Icons */
+.dashboard .ant-statistic .anticon {
+  font-size: 24px;
+  margin-right: 12px;
+  opacity: 0.9;
+}
+
+/* Enhanced Card Hover Effects */
+.dashboard .ant-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.dashboard .ant-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress Bars in Cards */
+.dashboard .ant-progress-bg {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.dashboard .ant-progress-inner {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px;
+}
+
+/* List Cards */
+.dashboard .ant-card .ant-card-head {
+  background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.dashboard .ant-card .ant-card-head-title {
+  color: var(--primary-700);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* List Items */
+.dashboard .ant-list-item {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--gray-100);
+  transition: all 0.2s ease;
+}
+
+.dashboard .ant-list-item:hover {
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding-left: 16px;
+  padding-right: 16px;
+  margin: 0 -16px;
+}
+
+.dashboard .ant-list-item-meta-title a {
+  color: var(--gray-900);
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.dashboard .ant-list-item-meta-title a:hover {
+  color: var(--primary-600);
+}
+
+/* Timeline in Dashboard */
+.dashboard .ant-timeline {
+  margin-top: 16px;
+}
+
+.dashboard .ant-timeline-item-content {
+  color: var(--gray-700);
+  line-height: 1.6;
+}
+
+.dashboard .ant-timeline-item-content strong {
+  color: var(--gray-900);
+  font-weight: 600;
+}
+
+/* Empty States */
+.dashboard .ant-empty {
+  padding: 40px 20px;
+}
+
+.dashboard .ant-empty-description {
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+/* Mobile Optimizations for Dashboard */
+@media (max-width: 768px) {
+  .dashboard .ant-col {
+    margin-bottom: 16px;
+  }
+
+  .dashboard .ant-card {
+    border-radius: 12px;
+  }
+
+  .dashboard .ant-card:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  .dashboard .ant-statistic-content-value {
+    font-size: 20px !important;
+  }
+
+  .dashboard .ant-statistic-title {
+    font-size: 11px !important;
+  }
+
+  .dashboard .ant-list-item {
+    padding: 12px 0;
+  }
+
+  .dashboard .ant-card-body {
+    padding: 16px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard .ant-statistic .anticon {
+    font-size: 20px;
+    margin-right: 8px;
+  }
+
+  .dashboard .ant-card-head {
+    padding: 12px 16px !important;
+  }
+
+  .dashboard .ant-card-head-title {
+    font-size: 14px !important;
+  }
+}
+
+/* Dashboard Enhanced Styling */
+
+/* Glass morphism effect for main stats cards */
+.dashboard .ant-row:first-child .ant-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard .ant-row:first-child .ant-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(118, 75, 162, 0.1) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dashboard .ant-row:first-child .ant-card:hover::before {
+  opacity: 1;
+}
+
+/* Individual card color themes */
+.dashboard .ant-row:first-child .ant-col:nth-child(1) .ant-card {
+  border-left: 4px solid #667eea;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(1) .ant-statistic .anticon {
+  color: #667eea;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(2) .ant-card {
+  border-left: 4px solid #10b981;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(2) .ant-statistic .anticon {
+  color: #10b981;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(3) .ant-card {
+  border-left: 4px solid #3b82f6;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(3) .ant-statistic .anticon {
+  color: #3b82f6;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(4) .ant-card {
+  border-left: 4px solid #ef4444;
+}
+
+.dashboard .ant-row:first-child .ant-col:nth-child(4) .ant-statistic .anticon {
+  color: #ef4444;
+}
+
+/* Budget cards with gradient backgrounds */
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(1) .ant-card {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+}
+
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(1) .ant-statistic-title,
+.dashboard
+  .ant-row:nth-child(2)
+  .ant-col:nth-child(1)
+  .ant-statistic-content-value,
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(1) .anticon {
+  color: white !important;
+}
+
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(2) .ant-card {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+}
+
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(2) .ant-statistic-title,
+.dashboard
+  .ant-row:nth-child(2)
+  .ant-col:nth-child(2)
+  .ant-statistic-content-value,
+.dashboard .ant-row:nth-child(2) .ant-col:nth-child(2) .anticon {
+  color: white !important;
+}
+
+/* Enhanced hover effects */
+.dashboard .ant-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.dashboard .ant-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+/* Progress bars with modern styling */
+.dashboard .ant-progress .ant-progress-bg {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 10px;
+}
+
+.dashboard .ant-progress .ant-progress-inner {
+  background: rgba(102, 126, 234, 0.1) !important;
+  border-radius: 10px;
+}
+
+/* List and Timeline enhancements */
+.dashboard .ant-list-item {
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.dashboard .ant-list-item:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.02) 0%,
+    rgba(118, 75, 162, 0.02) 100%
+  );
+  border-radius: 12px;
+  padding-left: 20px;
+  padding-right: 20px;
+  margin: 0 -20px;
+  border-bottom-color: transparent;
+}
+
+.dashboard .ant-list-item-meta-title a {
+  background: linear-gradient(135deg, #333 0%, #667eea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.dashboard .ant-list-item-meta-title a:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Timeline modern styling */
+.dashboard .ant-timeline-item-head {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.dashboard .ant-timeline-item-tail {
+  border-left: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.dashboard .ant-timeline-item-content {
+  margin-left: 20px;
+  padding: 12px 16px;
+  background: rgba(102, 126, 234, 0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+/* Tab styling for monthly summary */
+.dashboard .ant-tabs-tab {
+  font-weight: 500;
+  font-size: 15px;
+  padding: 12px 20px;
+  border-radius: 10px 10px 0 0;
+  transition: all 0.3s ease;
+}
+
+.dashboard .ant-tabs-tab:hover {
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.dashboard .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #667eea !important;
+  font-weight: 600;
+}
+
+.dashboard .ant-tabs-ink-bar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* Chart containers */
+.dashboard .recharts-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Empty state styling */
+.dashboard .ant-empty {
+  padding: 60px 40px;
+}
+
+.dashboard .ant-empty-image {
+  opacity: 0.6;
+}
+
+.dashboard .ant-empty-description {
+  color: #8b8b8b;
+  font-style: italic;
+  margin-top: 16px;
+}
+
+/* Card headers with gradient */
+.dashboard .ant-card-head {
+  background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+  position: relative;
+}
+
+.dashboard .ant-card-head::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dashboard .ant-card:hover .ant-card-head::after {
+  opacity: 1;
+}
+
+.dashboard .ant-card-head-title {
+  color: #667eea;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* Mobile responsive enhancements */
+@media (max-width: 768px) {
+  .dashboard .ant-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  .dashboard .ant-col {
+    margin-bottom: 16px;
+  }
+
+  .dashboard .ant-card {
+    border-radius: 16px;
+  }
+
+  .dashboard .ant-statistic-content-value {
+    font-size: 24px !important;
+    font-weight: 700;
+  }
+
+  .dashboard .ant-statistic-title {
+    font-size: 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .dashboard .ant-list-item {
+    padding: 16px 0;
+  }
+
+  .dashboard .ant-list-item:hover {
+    padding-left: 16px;
+    padding-right: 16px;
+    margin: 0 -16px;
+  }
+
+  .dashboard .ant-card-body {
+    padding: 20px !important;
+  }
+
+  .dashboard .ant-card-head {
+    padding: 16px 20px !important;
+  }
+
+  /* Adjust timeline for mobile */
+  .dashboard .ant-timeline-item-content {
+    margin-left: 16px;
+    padding: 10px 12px;
+  }
+
+  /* Adjust tabs for mobile */
+  .dashboard .ant-tabs-tab {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard .ant-statistic .anticon {
+    font-size: 18px;
+    margin-right: 8px;
+  }
+
+  .dashboard .ant-card-head-title {
+    font-size: 14px !important;
+  }
+
+  .dashboard .ant-statistic-content-value {
+    font-size: 20px !important;
+  }
+
+  .dashboard .ant-card-body {
+    padding: 16px !important;
+  }
+
+  .dashboard .ant-card-head {
+    padding: 12px 16px !important;
+  }
+
+  /* Make cards more compact on small screens */
+  .dashboard .ant-card {
+    margin-bottom: 12px;
+  }
+
+  .dashboard .ant-list-item-meta-title {
+    font-size: 14px;
+  }
+
+  .dashboard .ant-list-item-meta-description {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+}
+
+/* Special effects for different card types */
+.dashboard .ant-card[data-card-type="total"] {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.05) 0%,
+    rgba(118, 75, 162, 0.05) 100%
+  );
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.dashboard .ant-card[data-card-type="completed"] {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.05) 0%,
+    rgba(5, 150, 105, 0.05) 100%
+  );
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.dashboard .ant-card[data-card-type="progress"] {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.05) 0%,
+    rgba(37, 99, 235, 0.05) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.dashboard .ant-card[data-card-type="delayed"] {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.05) 0%,
+    rgba(220, 38, 38, 0.05) 100%
+  );
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Loading states */
+.dashboard .ant-card.loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Pulse animation for important stats */
+.dashboard .ant-card.pulse {
+  animation: cardPulse 2s ease-in-out infinite;
+}
+
+@keyframes cardPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(102, 126, 234, 0);
+  }
+}
+
+/* Interactive elements */
+.dashboard .ant-card.clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dashboard .ant-card.clickable:active {
+  transform: translateY(-2px) scale(0.98);
+}
+
+/* Status indicators */
+.dashboard .status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: statusBlink 2s infinite;
+}
+
+.dashboard .status-indicator.success {
+  background: #10b981;
+}
+
+.dashboard .status-indicator.warning {
+  background: #f59e0b;
+}
+
+.dashboard .status-indicator.error {
+  background: #ef4444;
+}
+
+.dashboard .status-indicator.info {
+  background: #3b82f6;
+}
+
+@keyframes statusBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Chart enhancements */
+.dashboard .chart-container {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard .chart-container .recharts-cartesian-grid-horizontal line,
+.dashboard .chart-container .recharts-cartesian-grid-vertical line {
+  stroke: rgba(102, 126, 234, 0.1);
+}
+
+.dashboard .chart-container .recharts-tooltip-wrapper {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .dashboard .ant-card {
+    background: rgba(45, 55, 72, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f7fafc;
+  }
+
+  .dashboard .ant-card-head {
+    background: rgba(26, 32, 44, 0.8);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .dashboard .ant-list-item {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .dashboard .ant-timeline-item-content {
+    background: rgba(26, 32, 44, 0.5);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Print styles */
+@media print {
+  .dashboard .ant-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  .dashboard .ant-card:hover {
+    transform: none !important;
+  }
+
+  .dashboard .chart-container {
+    background: white !important;
+    backdrop-filter: none !important;
+  }
+}
