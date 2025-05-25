@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.jsx (เวอร์ชันเรียบง่ายสำหรับทดสอบ)
+// src/contexts/AuthContext.jsx (เวอร์ชันแก้ไขปัญหาการแสดงโปรเจค)
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ฟังก์ชันทดสอบที่เรียบง่าย - ดึงโปรเจคโดยตรง
+  // ปรับปรุงฟังก์ชันการดึงโปรเจค
   const getAssignedProjects = async () => {
     if (!user) {
       console.log("❌ getAssignedProjects: No user");
@@ -134,31 +134,85 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      console.log("🔍 getAssignedProjects: Fetching projects - Simple mode");
-
-      // ทดสอบด้วย query ที่เรียบง่ายที่สุด
-      const { data: projects, error } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("❌ getAssignedProjects: Error:", error);
-        throw error;
-      }
-
       console.log(
-        "✅ getAssignedProjects: Success! Found",
-        projects?.length || 0,
-        "projects"
+        "🔍 getAssignedProjects: Fetching projects for user:",
+        user.email
       );
+      console.log("🎭 User role:", userRole);
 
-      // แสดงข้อมูลโปรเจคที่ได้
-      if (projects && projects.length > 0) {
-        console.log("📊 Sample project:", projects[0]);
+      if (userRole === "admin") {
+        console.log("👑 Admin mode: Fetching all projects");
+
+        // Admin ดูโปรเจคทั้งหมด
+        const { data: projects, error } = await supabase
+          .from("projects")
+          .select(
+            `
+            *,
+            assignments:team_project_assignments(
+              id,
+              role,
+              team_member_id,
+              team_member:team_members(
+                id,
+                name,
+                email
+              )
+            )
+          `
+          )
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("❌ Admin getAssignedProjects: Error:", error);
+          throw error;
+        }
+
+        console.log("✅ Admin: Found", projects?.length || 0, "projects");
+        return projects || [];
+      } else {
+        console.log("👤 User mode: Fetching assigned projects");
+
+        // สำหรับการทดสอบ - ให้ user เห็นโปรเจคทั้งหมดก่อน
+        // ในภายหลังจะปรับให้เห็นเฉพาะที่ได้รับมอบหมาย
+        const { data: projects, error } = await supabase
+          .from("projects")
+          .select(
+            `
+            *,
+            assignments:team_project_assignments(
+              id,
+              role,
+              team_member_id,
+              team_member:team_members(
+                id,
+                name,
+                email
+              )
+            )
+          `
+          )
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("❌ User getAssignedProjects: Error:", error);
+          throw error;
+        }
+
+        console.log(
+          "✅ User: Found",
+          projects?.length || 0,
+          "projects (showing all for testing)"
+        );
+
+        // กำหนดบทบาทเริ่มต้นสำหรับการทดสอบ
+        const projectsWithRole = (projects || []).map((project) => ({
+          ...project,
+          user_assignment_role: "ผู้ร่วมงาน", // กำหนดบทบาทเริ่มต้น
+        }));
+
+        return projectsWithRole;
       }
-
-      return projects || [];
     } catch (error) {
       console.error("❌ getAssignedProjects: Exception:", error);
       return [];
@@ -173,11 +227,21 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      console.log("🔍 getTeamMembers: Fetching team members - Simple mode");
+      console.log("🔍 getTeamMembers: Fetching team members");
 
       const { data: teamMembers, error } = await supabase
         .from("team_members")
-        .select("*")
+        .select(
+          `
+          *,
+          assignments:team_project_assignments(
+            id,
+            role,
+            project_id,
+            project:projects(id, name)
+          )
+        `
+        )
         .order("name");
 
       if (error) {
@@ -190,7 +254,6 @@ export const AuthProvider = ({ children }) => {
         teamMembers?.length || 0,
         "members"
       );
-
       return teamMembers || [];
     } catch (error) {
       console.error("❌ getTeamMembers: Exception:", error);
@@ -199,8 +262,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const canAccessProject = (project) => {
-    // สำหรับการทดสอบ - admin เข้าถึงได้ทุกโปรเจค
-    return userRole === "admin";
+    if (!project || !user) return false;
+
+    // Admin เข้าถึงได้ทุกโปรเจค
+    if (userRole === "admin") {
+      return true;
+    }
+
+    // User ทั่วไป - สำหรับการทดสอบให้เข้าถึงได้ทุกโปรเจค
+    // ในภายหลังจะเปลี่ยนเป็นเฉพาะโปรเจคที่ได้รับมอบหมาย
+    return true;
   };
 
   const signOut = async () => {

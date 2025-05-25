@@ -6,30 +6,54 @@ import {
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
+import { useAuth } from "../context/AuthContext";
 
 const BottomNavigation = ({ selectedMenu, onMenuSelect, session }) => {
-  const menuItems = [
-    {
-      key: "dashboard",
-      icon: <DashboardOutlined />,
-      label: "หน้าหลัก",
-    },
-    {
-      key: "projects",
-      icon: <ProjectOutlined />,
-      label: "โปรเจค",
-    },
-    {
-      key: "team",
-      icon: <TeamOutlined />,
-      label: "ทีม",
-    },
-    {
+  const { isAdmin } = useAuth();
+
+  // กำหนดเมนูตามสิทธิ์ของผู้ใช้
+  const getMenuItems = () => {
+    const baseItems = [];
+
+    if (isAdmin) {
+      // เมนูสำหรับ Admin
+      baseItems.push(
+        {
+          key: "dashboard",
+          icon: <DashboardOutlined />,
+          label: "แดชบอร์ด",
+        },
+        {
+          key: "projects",
+          icon: <ProjectOutlined />,
+          label: "โปรเจค",
+        },
+        {
+          key: "team",
+          icon: <TeamOutlined />,
+          label: "ทีม",
+        }
+      );
+    } else {
+      // เมนูสำหรับ User ทั่วไป
+      baseItems.push({
+        key: "my-projects",
+        icon: <ProjectOutlined />,
+        label: "โปรเจค",
+      });
+    }
+
+    // เพิ่มเมนูโปรไฟล์สำหรับทุกคน
+    baseItems.push({
       key: "profile",
       icon: <UserOutlined />,
       label: "โปรไฟล์",
-    },
-  ];
+    });
+
+    return baseItems;
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <div

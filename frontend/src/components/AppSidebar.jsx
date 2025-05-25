@@ -5,8 +5,10 @@ import {
   DashboardOutlined,
   ProjectOutlined,
   TeamOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import projectLogo from "../assets/project-management.png";
+import { useAuth } from "../context/AuthContext";
 
 const { Sider } = Layout;
 const { Title } = Typography;
@@ -17,26 +19,48 @@ const AppSidebar = ({
   onMenuSelect,
   visible = true,
 }) => {
-  const menuItems = [
-    {
-      key: "dashboard",
-      icon: <DashboardOutlined />,
-      label: "แดชบอร์ด",
-      onClick: () => onMenuSelect("dashboard"),
-    },
-    {
-      key: "projects",
-      icon: <ProjectOutlined />,
-      label: "โปรเจคทั้งหมด",
-      onClick: () => onMenuSelect("projects"),
-    },
-    {
-      key: "team",
-      icon: <TeamOutlined />,
-      label: "ทีมงาน",
-      onClick: () => onMenuSelect("team"),
-    },
-  ];
+  const { isAdmin } = useAuth();
+
+  // กำหนดเมนูตามสิทธิ์ของผู้ใช้
+  const getMenuItems = () => {
+    const baseItems = [];
+
+    if (isAdmin) {
+      // เมนูสำหรับ Admin
+      baseItems.push(
+        {
+          key: "dashboard",
+          icon: <DashboardOutlined />,
+          label: "แดชบอร์ด",
+          onClick: () => onMenuSelect("dashboard"),
+        },
+        {
+          key: "projects",
+          icon: <ProjectOutlined />,
+          label: "โปรเจคทั้งหมด",
+          onClick: () => onMenuSelect("projects"),
+        },
+        {
+          key: "team",
+          icon: <TeamOutlined />,
+          label: "ทีมงาน",
+          onClick: () => onMenuSelect("team"),
+        }
+      );
+    } else {
+      // เมนูสำหรับ User ทั่วไป
+      baseItems.push({
+        key: "my-projects",
+        icon: <ProjectOutlined />,
+        label: "โปรเจคของฉัน",
+        onClick: () => onMenuSelect("my-projects"),
+      });
+    }
+
+    return baseItems;
+  };
+
+  const menuItems = getMenuItems();
 
   if (!visible) return null;
 
@@ -105,6 +129,34 @@ const AppSidebar = ({
       <Divider
         style={{ margin: "0 0 16px 0", borderColor: "rgba(255,255,255,0.1)" }}
       />
+
+      {/* แสดงข้อมูลสิทธิ์ในกรณีที่ไม่ collapse */}
+      {!collapsed && (
+        <div
+          style={{
+            padding: "8px 16px",
+            marginBottom: "8px",
+            background: "rgba(255,255,255,0.1)",
+            margin: "0 12px 16px 12px",
+            borderRadius: "8px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              color: "rgba(255,255,255,0.8)",
+              fontSize: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <UserOutlined style={{ marginRight: "4px" }} />
+            {isAdmin ? "ผู้ดูแลระบบ" : "ผู้ใช้ทั่วไป"}
+          </div>
+        </div>
+      )}
+
       <Menu
         theme="dark"
         mode="inline"

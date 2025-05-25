@@ -1,4 +1,4 @@
-// src/pages/MyProjects.jsx
+// src/pages/MyProjects.jsx - เวอร์ชันแก้ไขปัญหา
 import React, { useState, useEffect } from "react";
 import {
   Row,
@@ -17,6 +17,7 @@ import {
   Statistic,
   Descriptions,
   List,
+  Typography,
 } from "antd";
 import {
   ProjectOutlined,
@@ -29,16 +30,20 @@ import {
   FileTextOutlined,
   TeamOutlined,
   DollarOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
 import "moment/locale/th";
 import { useAuth } from "../context/AuthContext";
+
+const { Text } = Typography;
 
 const MyProjects = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
@@ -46,31 +51,57 @@ const MyProjects = () => {
     delayed: 0,
   });
 
-  const { getAssignedProjects, user, isAdmin } = useAuth();
+  const { getAssignedProjects, user, isAdmin, userRole } = useAuth();
 
   useEffect(() => {
-    fetchMyProjects();
-  }, []);
+    console.log("🔄 MyProjects: Component mounted");
+    console.log("👤 User:", user?.email);
+    console.log("🎭 Role:", userRole);
+
+    if (user) {
+      fetchMyProjects();
+    }
+  }, [user, userRole]);
 
   const fetchMyProjects = async () => {
+    console.log("🔍 MyProjects: Starting to fetch projects...");
     setLoading(true);
+    setError(null);
+
     try {
+      console.log("📞 MyProjects: Calling getAssignedProjects...");
       const projectsData = await getAssignedProjects();
+
+      console.log("📊 MyProjects: Raw projects data:", projectsData);
+      console.log("📊 MyProjects: Projects count:", projectsData?.length || 0);
+
+      if (!projectsData) {
+        console.warn("⚠️ MyProjects: No projects data returned");
+        setProjects([]);
+        return;
+      }
 
       // กรองเฉพาะโปรเจคที่ user ได้รับมอบหมาย (สำหรับ user ทั่วไป)
       let filteredProjects = projectsData;
+
       if (!isAdmin) {
-        // สำหรับ user ทั่วไป แสดงเฉพาะโปรเจคที่ได้รับมอบหมาย
-        filteredProjects = projectsData.filter(
-          (project) =>
-            project.user_assignment_role ||
-            (project.assignments &&
-              project.assignments.some(
-                (assignment) => assignment.team_member?.email === user?.email
-              ))
+        console.log("👤 MyProjects: Filtering projects for regular user");
+        // สำหรับการทดสอบ - แสดงโปรเจคทั้งหมดก่อน
+        // ในภายหลังจะกรองตามการมอบหมายจริง
+        filteredProjects = projectsData.map((project) => ({
+          ...project,
+          user_assignment_role: project.user_assignment_role || "ผู้ร่วมงาน",
+        }));
+        console.log(
+          "👤 MyProjects: Filtered projects count:",
+          filteredProjects.length
         );
       }
 
+      console.log(
+        "✅ MyProjects: Final projects to display:",
+        filteredProjects.length
+      );
       setProjects(filteredProjects);
 
       // คำนวณสถิติ
@@ -85,15 +116,20 @@ const MyProjects = () => {
         (p) => p.status === "delay"
       ).length;
 
-      setStats({ total, completed, inProgress, delayed });
+      const newStats = { total, completed, inProgress, delayed };
+      console.log("📈 MyProjects: Calculated stats:", newStats);
+      setStats(newStats);
     } catch (error) {
-      console.error("Error fetching my projects:", error);
+      console.error("❌ MyProjects: Error fetching projects:", error);
+      setError(error.message || "เกิดข้อผิดพลาดในการดึงข้อมูลโปรเจค");
     } finally {
       setLoading(false);
+      console.log("✅ MyProjects: Fetch completed");
     }
   };
 
   const showProjectDetail = (project) => {
+    console.log("👁️ MyProjects: Showing project detail:", project.name);
     setSelectedProject(project);
     setDetailModalVisible(true);
   };
@@ -271,18 +307,93 @@ const MyProjects = () => {
       <div style={{ textAlign: "center", padding: "50px" }}>
         <Spin size="large" />
         <p style={{ marginTop: 16 }}>กำลังโหลดโปรเจคของคุณ...</p>
+        <p style={{ color: "#666", fontSize: "12px" }}>
+          ผู้ใช้: {user?.email} | บทบาท: {userRole}
+        </p>
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div style={{ padding: "24px" }}>
+        <Alert
+          message="เกิดข้อผิดพลาด"
+          description={error}
+          type="error"
+          showIcon
+          action={
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={fetchMyProjects}
+            >
+              ลองใหม่
+            </Button>
+          }
+        />
+        <div
+          style={{
+            marginTop: 16,
+            padding: 16,
+            background: "#f5f5f5",
+            borderRadius: 8,
+          }}
+        >
+          <h4>ข้อมูลการดีบัก:</h4>
+          <p>ผู้ใช้: {user?.email}</p>
+          <p>บทบาท: {userRole}</p>
+          <p>
+            สถานะการเข้าสู่ระบบ:{" "}
+            {user ? "เข้าสู่ระบบแล้ว" : "ยังไม่ได้เข้าสู่ระบบ"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log("🎨 MyProjects: Rendering with", projects.length, "projects");
 
   return (
     <div style={{ padding: "24px" }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <h2>
-          <ProjectOutlined /> โปรเจคของฉัน
-        </h2>
-        <p style={{ color: "#666" }}>โปรเจคที่คุณได้รับมอบหมายให้รับผิดชอบ</p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <h2>
+              <ProjectOutlined /> โปรเจคของฉัน
+            </h2>
+            <p style={{ color: "#666" }}>
+              {isAdmin
+                ? "โปรเจคทั้งหมดในระบบ (โหมดผู้ดูแล)"
+                : "โปรเจคที่คุณได้รับมอบหมายให้รับผิดชอบ"}
+            </p>
+          </div>
+
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchMyProjects}
+            loading={loading}
+          >
+            รีเฟรช
+          </Button>
+        </div>
+
+        {/* Debug Info */}
+        <Alert
+          message={`ข้อมูลผู้ใช้: ${user?.email} | บทบาท: ${
+            isAdmin ? "ผู้ดูแลระบบ" : "ผู้ใช้ทั่วไป"
+          } | โปรเจค: ${projects.length} รายการ`}
+          type="info"
+          showIcon
+          style={{ marginTop: 16 }}
+        />
       </div>
 
       {/* Stats Cards */}
@@ -344,8 +455,17 @@ const MyProjects = () => {
             <div>
               <p>ยังไม่มีโปรเจคที่ได้รับมอบหมาย</p>
               <p style={{ color: "#999", fontSize: "12px" }}>
-                กรุณาติดต่อผู้ดูแลระบบเพื่อขอรับมอบหมายโปรเจค
+                {isAdmin
+                  ? "ไม่มีโปรเจคในระบบ กรุณาสร้างโปรเจคใหม่"
+                  : "กรุณาติดต่อผู้ดูแลระบบเพื่อขอรับมอบหมายโปรเจค"}
               </p>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={fetchMyProjects}
+                style={{ marginTop: 8 }}
+              >
+                รีเฟรชข้อมูล
+              </Button>
             </div>
           }
         />
