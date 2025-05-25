@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.jsx (Simple Version - ไม่ใช้ database)
+// src/contexts/AuthContext.jsx (เวอร์ชันเรียบง่ายสำหรับทดสอบ)
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
@@ -126,6 +126,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ฟังก์ชันทดสอบที่เรียบง่าย - ดึงโปรเจคโดยตรง
   const getAssignedProjects = async () => {
     if (!user) {
       console.log("❌ getAssignedProjects: No user");
@@ -133,150 +134,64 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      console.log("🔍 getAssignedProjects: Fetching projects - Simple mode");
+
+      // ทดสอบด้วย query ที่เรียบง่ายที่สุด
+      const { data: projects, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("❌ getAssignedProjects: Error:", error);
+        throw error;
+      }
+
       console.log(
-        "🔍 getAssignedProjects: Fetching projects for role:",
-        userRole
+        "✅ getAssignedProjects: Success! Found",
+        projects?.length || 0,
+        "projects"
       );
 
-      if (userRole === "admin") {
-        console.log("👑 getAssignedProjects: Admin - fetching all projects");
-        // Admin can see all projects
-        const { data, error } = await supabase
-          .from("projects")
-          .select(
-            `
-            *,
-            tasks:tasks(*),
-            assignments:team_project_assignments(
-              id,
-              role,
-              team_member:team_members(id, name, email)
-            )
-          `
-          )
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error(
-            "❌ getAssignedProjects: Error fetching admin projects:",
-            error
-          );
-          return [];
-        }
-
-        console.log(
-          "✅ getAssignedProjects: Admin projects fetched:",
-          data?.length || 0
-        );
-        return data || [];
-      } else {
-        console.log(
-          "👤 getAssignedProjects: User - fetching assigned projects"
-        );
-        // For regular users, try to get assigned projects
-        try {
-          const { data, error } = await supabase
-            .from("team_project_assignments")
-            .select(
-              `
-              project_id,
-              role,
-              project:projects(
-                *,
-                tasks:tasks(*),
-                assignments:team_project_assignments(
-                  id,
-                  role,
-                  team_member:team_members(id, name, email)
-                )
-              ),
-              team_member:team_members!inner(*)
-            `
-            )
-            .eq("team_members.email", user.email);
-
-          if (error) {
-            console.error(
-              "❌ getAssignedProjects: Error fetching user projects:",
-              error
-            );
-            return [];
-          }
-
-          // Extract projects from assignments
-          const projects = (data || [])
-            .filter((assignment) => assignment.project)
-            .map((assignment) => ({
-              ...assignment.project,
-              user_assignment_role: assignment.role,
-            }));
-
-          console.log(
-            "✅ getAssignedProjects: User projects fetched:",
-            projects.length
-          );
-          return projects;
-        } catch (error) {
-          console.error(
-            "❌ getAssignedProjects: Table might not exist:",
-            error
-          );
-          return [];
-        }
+      // แสดงข้อมูลโปรเจคที่ได้
+      if (projects && projects.length > 0) {
+        console.log("📊 Sample project:", projects[0]);
       }
+
+      return projects || [];
     } catch (error) {
       console.error("❌ getAssignedProjects: Exception:", error);
       return [];
     }
   };
 
+  // ฟังก์ชันทดสอบ team members
   const getTeamMembers = async () => {
-    if (!user) {
-      console.log("❌ getTeamMembers: No user");
+    if (!user || userRole !== "admin") {
+      console.log("❌ getTeamMembers: No permission or no user");
       return [];
     }
 
     try {
+      console.log("🔍 getTeamMembers: Fetching team members - Simple mode");
+
+      const { data: teamMembers, error } = await supabase
+        .from("team_members")
+        .select("*")
+        .order("name");
+
+      if (error) {
+        console.error("❌ getTeamMembers: Error:", error);
+        throw error;
+      }
+
       console.log(
-        "🔍 getTeamMembers: Fetching team members for role:",
-        userRole
+        "✅ getTeamMembers: Success! Found",
+        teamMembers?.length || 0,
+        "members"
       );
 
-      if (userRole === "admin") {
-        // Admin can see all team members
-        const { data, error } = await supabase
-          .from("team_members")
-          .select(
-            `
-            *,
-            assignments:team_project_assignments(
-              id,
-              role,
-              project_id,
-              project:projects(id, name)
-            )
-          `
-          )
-          .order("name");
-
-        if (error) {
-          console.error(
-            "❌ getTeamMembers: Error fetching admin team members:",
-            error
-          );
-          return [];
-        }
-
-        console.log(
-          "✅ getTeamMembers: Admin team members fetched:",
-          data?.length || 0
-        );
-        return data || [];
-      } else {
-        // For regular users, return empty array for now
-        console.log("👤 getTeamMembers: User - returning empty array");
-        return [];
-      }
+      return teamMembers || [];
     } catch (error) {
       console.error("❌ getTeamMembers: Exception:", error);
       return [];
@@ -284,16 +199,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const canAccessProject = (project) => {
-    if (userRole === "admin") return true;
-
-    // Check if user is assigned to this project
-    if (project.assignments) {
-      return project.assignments.some(
-        (assignment) => assignment.team_member?.email === user?.email
-      );
-    }
-
-    return false;
+    // สำหรับการทดสอบ - admin เข้าถึงได้ทุกโปรเจค
+    return userRole === "admin";
   };
 
   const signOut = async () => {

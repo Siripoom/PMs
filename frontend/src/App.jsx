@@ -9,6 +9,7 @@ import {
 import Dashboard from "./pages/Dashboard";
 import ProjectList from "./pages/ProjectList";
 import TeamMembers from "./pages/TeamMembers";
+import MyProjects from "./pages/MyProjects";
 
 import Auth from "./components/Auth";
 import AppSidebar from "./components/AppSidebar";
@@ -25,10 +26,21 @@ const { Content, Footer } = Layout;
 // Main App Content Component
 const AppContent = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedMenu, setSelectedMenu] = useState("dashboard");
+  const [selectedMenu, setSelectedMenu] = useState("");
   const [mobileView, setMobileView] = useState(window.innerWidth <= 768);
 
   const { user, session, loading, signOut, userRole, isAdmin } = useAuth();
+
+  // ตั้งค่าหน้าเริ่มต้นตามสิทธิ์
+  useEffect(() => {
+    if (user && !selectedMenu) {
+      if (isAdmin) {
+        setSelectedMenu("dashboard");
+      } else {
+        setSelectedMenu("my-projects");
+      }
+    }
+  }, [user, isAdmin, selectedMenu]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -114,14 +126,45 @@ const AppContent = () => {
     },
   ];
 
+  const getHeaderTitle = () => {
+    switch (selectedMenu) {
+      case "dashboard":
+        return "แดชบอร์ด";
+      case "projects":
+        return "โปรเจคทั้งหมด";
+      case "my-projects":
+        return "โปรเจคของฉัน";
+      case "team":
+        return "ทีมงาน";
+      case "profile":
+        return "ข้อมูลส่วนตัว";
+      case "settings":
+        return "ตั้งค่า";
+      default:
+        return "ระบบจัดการโปรเจค";
+    }
+  };
+
   const renderContent = () => {
     switch (selectedMenu) {
       case "dashboard":
-        return <Dashboard onNavigate={handleMenuSelect} />;
+        // เฉพาะ Admin เท่านั้น
+        return isAdmin ? (
+          <Dashboard onNavigate={handleMenuSelect} />
+        ) : (
+          <MyProjects />
+        );
+
       case "projects":
-        return <ProjectList />;
+        // เฉพาะ Admin เท่านั้น
+        return isAdmin ? <ProjectList /> : <MyProjects />;
+
+      case "my-projects":
+        return <MyProjects />;
+
       case "team":
         return <TeamMembers />;
+
       case "profile":
         return (
           <div style={{ textAlign: "center", padding: "50px" }}>
@@ -201,7 +244,11 @@ const AppContent = () => {
           </div>
         );
       default:
-        return <Dashboard onNavigate={handleMenuSelect} />;
+        return isAdmin ? (
+          <Dashboard onNavigate={handleMenuSelect} />
+        ) : (
+          <MyProjects />
+        );
     }
   };
 
@@ -256,6 +303,7 @@ const AppContent = () => {
           unreadNotifications={0}
           mobileView={mobileView}
           onNotificationClick={handleNotificationClick}
+          headerTitle={getHeaderTitle()}
         />
 
         <Content
@@ -296,7 +344,6 @@ const AppContent = () => {
         <BottomNavigation
           selectedMenu={selectedMenu}
           onMenuSelect={handleMenuSelect}
-          session={session}
         />
       )}
     </Layout>

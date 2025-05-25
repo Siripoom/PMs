@@ -39,8 +39,6 @@ import { useAuth } from "../context/AuthContext";
 import { AdminOnly, PermissionGuard } from "../components/RoleGuard";
 import MonthlySummary from "../components/MounthlySummary";
 
-const { TabPane } = Tabs;
-
 const Dashboard = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -71,19 +69,43 @@ const Dashboard = ({ onNavigate }) => {
       // ดึงข้อมูลโปรเจคตามสิทธิ์ของผู้ใช้
       const projects = await getAssignedProjects();
 
-      // ดึงข้อมูลกิจกรรมล่าสุด (สำหรับ Admin เท่านั้น)
+      // ดึงข้อมูลกิจกรรมล่าสุด (สำหรับ Admin เท่านั้น) - แยก query
       let activities = [];
       if (isAdmin) {
-        const { data: activitiesData, error: activitiesError } = await supabase
-          .from("activities")
-          .select("*, project:projects(name)")
-          .order("created_at", { ascending: false })
-          .limit(10);
+        try {
+          // ดึงข้อมูล activities แยกจากโปรเจค
+          const { data: activitiesData, error: activitiesError } =
+            await supabase
+              .from("activities")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(10);
 
-        if (activitiesError) {
-          console.error("Error fetching activities:", activitiesError);
-        } else {
-          activities = activitiesData || [];
+          if (activitiesError) {
+            console.error("Error fetching activities:", activitiesError);
+          } else {
+            // ดึงข้อมูลโปรเจคแยกสำหรับ activities
+            const { data: projectsData, error: projectsError } = await supabase
+              .from("projects")
+              .select("id, name");
+
+            if (!projectsError && projectsData) {
+              // รวมข้อมูลใน JavaScript
+              activities = (activitiesData || []).map((activity) => {
+                const project = projectsData.find(
+                  (p) => p.id === activity.project_id
+                );
+                return {
+                  ...activity,
+                  project: project ? { name: project.name } : null,
+                };
+              });
+            } else {
+              activities = activitiesData || [];
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching activities:", error);
         }
       }
 
@@ -277,395 +299,402 @@ const Dashboard = ({ onNavigate }) => {
     }
   };
 
-  return (
-    <div className="dashboard">
-      <Tabs defaultActiveKey="overview">
-        <TabPane tab="ภาพรวม" key="overview">
-          <Spin spinning={loading}>
-            <div className="overview">
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <h2>
-                  {isAdmin
-                    ? "ภาพรวมโปรเจคทั้งหมด"
-                    : "ภาพรวมโปรเจคที่ได้รับมอบหมาย"}
-                </h2>
-                {!isAdmin && (
-                  <Alert
-                    message="คุณจะเห็นเฉพาะโปรเจคที่ได้รับมอบหมายเท่านั้น"
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 0 }}
-                  />
-                )}
-              </div>
+  // สร้าง items สำหรับ Tabs แบบใหม่
+  const tabItems = [
+    {
+      key: "overview",
+      label: "ภาพรวม",
+      children: (
+        <Spin spinning={loading}>
+          <div className="overview">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h2>
+                {isAdmin
+                  ? "ภาพรวมโปรเจคทั้งหมด"
+                  : "ภาพรวมโปรเจคที่ได้รับมอบหมาย"}
+              </h2>
+              {!isAdmin && (
+                <Alert
+                  message="คุณจะเห็นเฉพาะโปรเจคที่ได้รับมอบหมายเท่านั้น"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 0 }}
+                />
+              )}
+            </div>
 
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} sm={12} lg={6}>
+                <Card hoverable onClick={viewAllProjects}>
+                  <Statistic
+                    title="โปรเจคทั้งหมด"
+                    value={stats.totalProjects}
+                    prefix={<ProjectOutlined />}
+                  />
+                  {stats.totalProjects > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <Progress
+                        percent={Math.round(
+                          (stats.completedProjects / stats.totalProjects) * 100
+                        )}
+                        size="small"
+                        status="active"
+                      />
+                    </div>
+                  )}
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  hoverable
+                  onClick={() => {
+                    if (typeof onNavigate === "function") {
+                      onNavigate("projects", null, { status: "done" });
+                    }
+                  }}
+                >
+                  <Statistic
+                    title="เสร็จสิ้นแล้ว"
+                    value={stats.completedProjects}
+                    valueStyle={{ color: "#3f8600" }}
+                    prefix={<CheckCircleOutlined />}
+                    suffix={
+                      stats.totalProjects > 0 ? `/ ${stats.totalProjects}` : ""
+                    }
+                  />
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  hoverable
+                  onClick={() => {
+                    if (typeof onNavigate === "function") {
+                      onNavigate("projects", null, { status: "in-progress" });
+                    }
+                  }}
+                >
+                  <Statistic
+                    title="กำลังดำเนินการ"
+                    value={stats.inProgressProjects}
+                    valueStyle={{ color: "#1890ff" }}
+                    prefix={<ClockCircleOutlined />}
+                  />
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  hoverable
+                  onClick={() => {
+                    if (typeof onNavigate === "function") {
+                      onNavigate("projects", null, { status: "delay" });
+                    } else {
+                      showDelayedProjects();
+                    }
+                  }}
+                >
+                  <Statistic
+                    title="ล่าช้า"
+                    value={stats.delayedProjects}
+                    valueStyle={{ color: "#cf1322" }}
+                    prefix={<WarningOutlined />}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Budget Cards - เฉพาะ Admin */}
+            <AdminOnly showFallback={false}>
               <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                <Col xs={24} sm={12} lg={6}>
-                  <Card hoverable onClick={viewAllProjects}>
+                <Col xs={24} sm={12}>
+                  <Card>
                     <Statistic
-                      title="โปรเจคทั้งหมด"
-                      value={stats.totalProjects}
-                      prefix={<ProjectOutlined />}
+                      title="งบประมาณทั้งหมด"
+                      value={stats.totalBudget}
+                      precision={2}
+                      valueStyle={{ color: "#3f8600" }}
+                      prefix={<DollarOutlined />}
+                      suffix="บาท"
                     />
-                    {stats.totalProjects > 0 && (
+                  </Card>
+                </Col>
+
+                <Col xs={24} sm={12}>
+                  <Card>
+                    <Statistic
+                      title="งบประมาณที่ยังดำเนินการ"
+                      value={stats.activeBudget}
+                      precision={2}
+                      valueStyle={{ color: "#1890ff" }}
+                      prefix={<DollarOutlined />}
+                      suffix="บาท"
+                    />
+                    {stats.totalBudget > 0 && (
                       <div style={{ marginTop: 8 }}>
                         <Progress
                           percent={Math.round(
-                            (stats.completedProjects / stats.totalProjects) *
-                              100
+                            (stats.activeBudget / stats.totalBudget) * 100
                           )}
                           size="small"
                           status="active"
+                          strokeColor="#1890ff"
                         />
                       </div>
                     )}
                   </Card>
                 </Col>
-
-                <Col xs={24} sm={12} lg={6}>
-                  <Card
-                    hoverable
-                    onClick={() => {
-                      if (typeof onNavigate === "function") {
-                        onNavigate("projects", null, { status: "done" });
-                      }
-                    }}
-                  >
-                    <Statistic
-                      title="เสร็จสิ้นแล้ว"
-                      value={stats.completedProjects}
-                      valueStyle={{ color: "#3f8600" }}
-                      prefix={<CheckCircleOutlined />}
-                      suffix={
-                        stats.totalProjects > 0
-                          ? `/ ${stats.totalProjects}`
-                          : ""
-                      }
-                    />
-                  </Card>
-                </Col>
-
-                <Col xs={24} sm={12} lg={6}>
-                  <Card
-                    hoverable
-                    onClick={() => {
-                      if (typeof onNavigate === "function") {
-                        onNavigate("projects", null, { status: "in-progress" });
-                      }
-                    }}
-                  >
-                    <Statistic
-                      title="กำลังดำเนินการ"
-                      value={stats.inProgressProjects}
-                      valueStyle={{ color: "#1890ff" }}
-                      prefix={<ClockCircleOutlined />}
-                    />
-                  </Card>
-                </Col>
-
-                <Col xs={24} sm={12} lg={6}>
-                  <Card
-                    hoverable
-                    onClick={() => {
-                      if (typeof onNavigate === "function") {
-                        onNavigate("projects", null, { status: "delay" });
-                      } else {
-                        showDelayedProjects();
-                      }
-                    }}
-                  >
-                    <Statistic
-                      title="ล่าช้า"
-                      value={stats.delayedProjects}
-                      valueStyle={{ color: "#cf1322" }}
-                      prefix={<WarningOutlined />}
-                    />
-                  </Card>
-                </Col>
               </Row>
+            </AdminOnly>
+          </div>
 
-              {/* Budget Cards - เฉพาะ Admin */}
-              <AdminOnly showFallback={false}>
-                <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                  <Col xs={24} sm={12}>
-                    <Card>
-                      <Statistic
-                        title="งบประมาณทั้งหมด"
-                        value={stats.totalBudget}
-                        precision={2}
-                        valueStyle={{ color: "#3f8600" }}
-                        prefix={<DollarOutlined />}
-                        suffix="บาท"
-                      />
-                    </Card>
-                  </Col>
-
-                  <Col xs={24} sm={12}>
-                    <Card>
-                      <Statistic
-                        title="งบประมาณที่ยังดำเนินการ"
-                        value={stats.activeBudget}
-                        precision={2}
-                        valueStyle={{ color: "#1890ff" }}
-                        prefix={<DollarOutlined />}
-                        suffix="บาท"
-                      />
-                      {stats.totalBudget > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          <Progress
-                            percent={Math.round(
-                              (stats.activeBudget / stats.totalBudget) * 100
-                            )}
-                            size="small"
-                            status="active"
-                            strokeColor="#1890ff"
-                          />
-                        </div>
-                      )}
-                    </Card>
-                  </Col>
-                </Row>
-              </AdminOnly>
-            </div>
-
-            <Row gutter={[16, 16]}>
-              <Col xs={24} lg={12}>
-                <Card
-                  title={
-                    <>
-                      <CalendarOutlined /> โปรเจคที่ใกล้ถึงกำหนด
-                    </>
-                  }
-                  style={{ marginBottom: 16 }}
-                  extra={
-                    <Button type="link" size="small" onClick={viewAllUpcoming}>
-                      ดูทั้งหมด
-                    </Button>
-                  }
-                >
-                  {upcomingDeadlines.length > 0 ? (
-                    <List
-                      dataSource={upcomingDeadlines}
-                      renderItem={(item) => (
-                        <List.Item
-                          actions={[
-                            <Tag
-                              color={
-                                item.daysLeft === 0
-                                  ? "red"
-                                  : item.daysLeft <= 2
-                                  ? "orange"
-                                  : "green"
-                              }
-                            >
-                              {item.daysLeft === 0
-                                ? "วันนี้"
-                                : `อีก ${item.daysLeft} วัน`}
-                            </Tag>,
-                          ]}
-                        >
-                          <List.Item.Meta
-                            avatar={
-                              !canAccessProject(item) ? (
-                                <LockOutlined />
-                              ) : (
-                                <ProjectOutlined />
-                              )
-                            }
-                            title={
-                              <div>
-                                <a
-                                  onClick={() => {
-                                    if (
-                                      canAccessProject(item) &&
-                                      typeof onNavigate === "function"
-                                    ) {
-                                      onNavigate("projects", item.id);
-                                    }
-                                  }}
-                                  style={{
-                                    color: canAccessProject(item)
-                                      ? undefined
-                                      : "#ccc",
-                                    cursor: canAccessProject(item)
-                                      ? "pointer"
-                                      : "not-allowed",
-                                  }}
-                                >
-                                  {item.name}
-                                </a>
-                                {!isAdmin && (
-                                  <Tag
-                                    size="small"
-                                    color="blue"
-                                    style={{ marginLeft: 8 }}
-                                  >
-                                    {item.user_assignment_role || "ผู้ร่วมงาน"}
-                                  </Tag>
-                                )}
-                              </div>
-                            }
-                            description={
-                              <>
-                                {getStatusTag(item.status)}
-                                <span style={{ marginLeft: 8 }}>
-                                  วันสิ้นสุด:{" "}
-                                  {moment(item.end_date).format("DD/MM/YYYY")}
-                                </span>
-                              </>
-                            }
-                          />
-                        </List.Item>
-                      )}
-                    />
-                  ) : (
-                    <Empty description="ไม่มีโปรเจคที่ใกล้ถึงกำหนด" />
-                  )}
-                </Card>
-              </Col>
-
-              <Col xs={24} lg={12}>
-                <Card
-                  title={
-                    <>
-                      <ProjectOutlined /> โปรเจคล่าสุด
-                    </>
-                  }
-                  style={{ marginBottom: 16 }}
-                  extra={
-                    <Button type="link" size="small" onClick={viewAllProjects}>
-                      ดูทั้งหมด
-                    </Button>
-                  }
-                >
-                  {recentProjects.length > 0 ? (
-                    <List
-                      dataSource={recentProjects}
-                      renderItem={(item) => (
-                        <List.Item actions={[getStatusTag(item.status)]}>
-                          <List.Item.Meta
-                            avatar={
-                              !canAccessProject(item) ? (
-                                <LockOutlined />
-                              ) : (
-                                <ProjectOutlined />
-                              )
-                            }
-                            title={
-                              <div>
-                                <a
-                                  onClick={() => {
-                                    if (
-                                      canAccessProject(item) &&
-                                      typeof onNavigate === "function"
-                                    ) {
-                                      onNavigate("projects", item.id);
-                                    }
-                                  }}
-                                  style={{
-                                    color: canAccessProject(item)
-                                      ? undefined
-                                      : "#ccc",
-                                    cursor: canAccessProject(item)
-                                      ? "pointer"
-                                      : "not-allowed",
-                                  }}
-                                >
-                                  {item.name}
-                                </a>
-                                {!isAdmin && (
-                                  <Tag
-                                    size="small"
-                                    color="blue"
-                                    style={{ marginLeft: 8 }}
-                                  >
-                                    {item.user_assignment_role || "ผู้ร่วมงาน"}
-                                  </Tag>
-                                )}
-                              </div>
-                            }
-                            description={
-                              <>
-                                <span>
-                                  วันที่สร้าง:{" "}
-                                  {moment(item.created_at).format("DD/MM/YYYY")}
-                                </span>
-                                <AdminOnly showFallback={false}>
-                                  <div>
-                                    งบประมาณ:{" "}
-                                    {(item.budget || 0).toLocaleString("th-TH")}{" "}
-                                    บาท
-                                  </div>
-                                </AdminOnly>
-                              </>
-                            }
-                          />
-                        </List.Item>
-                      )}
-                    />
-                  ) : (
-                    <Empty description="ไม่มีโปรเจค" />
-                  )}
-                </Card>
-              </Col>
-            </Row>
-
-            {/* Activities - เฉพาะ Admin */}
-            <AdminOnly showFallback={false}>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
               <Card
                 title={
                   <>
-                    <TeamOutlined /> กิจกรรมล่าสุด
+                    <CalendarOutlined /> โปรเจคที่ใกล้ถึงกำหนด
                   </>
                 }
                 style={{ marginBottom: 16 }}
+                extra={
+                  <Button type="link" size="small" onClick={viewAllUpcoming}>
+                    ดูทั้งหมด
+                  </Button>
+                }
               >
-                {activities.length > 0 ? (
-                  <Timeline>
-                    {activities.map((activity, index) => (
-                      <Timeline.Item
-                        key={activity.id || index}
-                        dot={getActivityIcon(activity.type)}
+                {upcomingDeadlines.length > 0 ? (
+                  <List
+                    dataSource={upcomingDeadlines}
+                    renderItem={(item) => (
+                      <List.Item
+                        actions={[
+                          <Tag
+                            color={
+                              item.daysLeft === 0
+                                ? "red"
+                                : item.daysLeft <= 2
+                                ? "orange"
+                                : "green"
+                            }
+                          >
+                            {item.daysLeft === 0
+                              ? "วันนี้"
+                              : `อีก ${item.daysLeft} วัน`}
+                          </Tag>,
+                        ]}
                       >
-                        <div style={{ marginBottom: 6 }}>
-                          <strong>{activity.project?.name}</strong>
-                          <span style={{ color: "#999", marginLeft: 8 }}>
-                            {moment(activity.created_at).fromNow()}
-                          </span>
-                        </div>
-                        <div>{activity.description}</div>
-                      </Timeline.Item>
-                    ))}
-                  </Timeline>
+                        <List.Item.Meta
+                          avatar={
+                            !canAccessProject(item) ? (
+                              <LockOutlined />
+                            ) : (
+                              <ProjectOutlined />
+                            )
+                          }
+                          title={
+                            <div>
+                              <a
+                                onClick={() => {
+                                  if (
+                                    canAccessProject(item) &&
+                                    typeof onNavigate === "function"
+                                  ) {
+                                    onNavigate("projects", item.id);
+                                  }
+                                }}
+                                style={{
+                                  color: canAccessProject(item)
+                                    ? undefined
+                                    : "#ccc",
+                                  cursor: canAccessProject(item)
+                                    ? "pointer"
+                                    : "not-allowed",
+                                }}
+                              >
+                                {item.name}
+                              </a>
+                              {!isAdmin && (
+                                <Tag
+                                  size="small"
+                                  color="blue"
+                                  style={{ marginLeft: 8 }}
+                                >
+                                  {item.user_assignment_role || "ผู้ร่วมงาน"}
+                                </Tag>
+                              )}
+                            </div>
+                          }
+                          description={
+                            <>
+                              {getStatusTag(item.status)}
+                              <span style={{ marginLeft: 8 }}>
+                                วันสิ้นสุด:{" "}
+                                {moment(item.end_date).format("DD/MM/YYYY")}
+                              </span>
+                            </>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
                 ) : (
-                  <Empty description="ไม่มีกิจกรรมล่าสุด" />
+                  <Empty description="ไม่มีโปรเจคที่ใกล้ถึงกำหนด" />
                 )}
               </Card>
-            </AdminOnly>
-          </Spin>
-        </TabPane>
+            </Col>
 
-        {/* Monthly Summary - เฉพาะ Admin */}
-        <AdminOnly>
-          <TabPane
-            tab={
-              <>
-                <BarChartOutlined /> สรุปรายเดือน
-              </>
-            }
-            key="monthly"
-          >
-            <MonthlySummary supabase={supabase} />
-          </TabPane>
-        </AdminOnly>
-      </Tabs>
+            <Col xs={24} lg={12}>
+              <Card
+                title={
+                  <>
+                    <ProjectOutlined /> โปรเจคล่าสุด
+                  </>
+                }
+                style={{ marginBottom: 16 }}
+                extra={
+                  <Button type="link" size="small" onClick={viewAllProjects}>
+                    ดูทั้งหมด
+                  </Button>
+                }
+              >
+                {recentProjects.length > 0 ? (
+                  <List
+                    dataSource={recentProjects}
+                    renderItem={(item) => (
+                      <List.Item actions={[getStatusTag(item.status)]}>
+                        <List.Item.Meta
+                          avatar={
+                            !canAccessProject(item) ? (
+                              <LockOutlined />
+                            ) : (
+                              <ProjectOutlined />
+                            )
+                          }
+                          title={
+                            <div>
+                              <a
+                                onClick={() => {
+                                  if (
+                                    canAccessProject(item) &&
+                                    typeof onNavigate === "function"
+                                  ) {
+                                    onNavigate("projects", item.id);
+                                  }
+                                }}
+                                style={{
+                                  color: canAccessProject(item)
+                                    ? undefined
+                                    : "#ccc",
+                                  cursor: canAccessProject(item)
+                                    ? "pointer"
+                                    : "not-allowed",
+                                }}
+                              >
+                                {item.name}
+                              </a>
+                              {!isAdmin && (
+                                <Tag
+                                  size="small"
+                                  color="blue"
+                                  style={{ marginLeft: 8 }}
+                                >
+                                  {item.user_assignment_role || "ผู้ร่วมงาน"}
+                                </Tag>
+                              )}
+                            </div>
+                          }
+                          description={
+                            <>
+                              <span>
+                                วันที่สร้าง:{" "}
+                                {moment(item.created_at).format("DD/MM/YYYY")}
+                              </span>
+                              <AdminOnly showFallback={false}>
+                                <div>
+                                  งบประมาณ:{" "}
+                                  {(item.budget || 0).toLocaleString("th-TH")}{" "}
+                                  บาท
+                                </div>
+                              </AdminOnly>
+                            </>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+                ) : (
+                  <Empty description="ไม่มีโปรเจค" />
+                )}
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Activities - เฉพาะ Admin */}
+          <AdminOnly showFallback={false}>
+            <Card
+              title={
+                <>
+                  <TeamOutlined /> กิจกรรมล่าสุด
+                </>
+              }
+              style={{ marginBottom: 16 }}
+            >
+              {activities.length > 0 ? (
+                <Timeline>
+                  {activities.map((activity, index) => (
+                    <Timeline.Item
+                      key={activity.id || index}
+                      dot={getActivityIcon(activity.type)}
+                    >
+                      <div style={{ marginBottom: 6 }}>
+                        <strong style={{ color: "#ffffff" }}>
+                          {activity.project?.name || "โปรเจคที่ไม่ระบุ"}
+                        </strong>
+                        <span style={{ color: "#999", marginLeft: 8 }}>
+                          {moment(activity.created_at).fromNow()}
+                        </span>
+                      </div>
+                      <div style={{ color: "#ffffff" }}>
+                        {activity.description}
+                      </div>
+                    </Timeline.Item>
+                  ))}
+                </Timeline>
+              ) : (
+                <Empty description="ไม่มีกิจกรรมล่าสุด" />
+              )}
+            </Card>
+          </AdminOnly>
+        </Spin>
+      ),
+    },
+  ];
+
+  // เพิ่ม Monthly Summary tab สำหรับ Admin
+  if (isAdmin) {
+    tabItems.push({
+      key: "monthly",
+      label: (
+        <>
+          <BarChartOutlined /> สรุปรายเดือน
+        </>
+      ),
+      children: <MonthlySummary supabase={supabase} />,
+    });
+  }
+
+  return (
+    <div className="dashboard">
+      <Tabs defaultActiveKey="overview" items={tabItems} />
     </div>
   );
 };
